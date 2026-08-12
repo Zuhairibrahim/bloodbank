@@ -14,6 +14,16 @@ class _AvailableDonorsScreenState extends State<AvailableDonorsScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _query = '';
 
+  static String _normalize(String text) {
+    return text
+        .replaceAll(RegExp('[أإآٱ]'), 'ا')
+        .replaceAll('ى', 'ي')
+        .replaceAll('ئ', 'ي')
+        .replaceAll('ؤ', 'و')
+        .replaceAll('ة', 'ه')
+        .trim();
+  }
+
   @override
   void dispose() {
     _searchController.dispose();
@@ -67,7 +77,7 @@ class _AvailableDonorsScreenState extends State<AvailableDonorsScreen> {
                     cursorColor: Colors.white,
                     textInputAction: TextInputAction.search,
                     decoration: InputDecoration(
-                      hintText: 'ابحث عن فصيلة الدم (مثل A+ أو O-)',
+                      hintText: 'ابحث بالاسم أو فصيلة الدم (مثل أحمد أو A+)',
                       hintStyle: const TextStyle(color: Colors.white70, fontSize: 15),
                       prefixIcon: const Icon(Icons.search, color: Colors.white),
                       suffixIcon: _query.isNotEmpty
@@ -117,10 +127,13 @@ class _AvailableDonorsScreenState extends State<AvailableDonorsScreen> {
                       donorsList.sort(DonorModel.compareArabicNames);
 
                       final query = _query.toLowerCase();
+                      final normQuery = _normalize(query);
                       final filtered = query.isEmpty
                           ? donorsList
                           : donorsList
-                              .where((d) => d.bloodType.toLowerCase().contains(query))
+                              .where((d) =>
+                                  d.bloodType.toLowerCase().contains(query) ||
+                                  _normalize(d.name.toLowerCase()).contains(normQuery))
                               .toList();
 
                       if (filtered.isEmpty) {

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'role_selection_screen.dart';
 
@@ -252,6 +253,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             controller: _phoneController,
                             keyboardType: TextInputType.phone,
                             style: const TextStyle(color: Colors.white),
+                            inputFormatters: [
+                              _PhoneDigitsFormatter(),
+                              LengthLimitingTextInputFormatter(9),
+                            ],
                             decoration: _inputDecoration(
                               hintText: 'رقم التلفون',
                               icon: Icons.phone_outlined,
@@ -279,70 +284,80 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 ),
                               ),
                               onPressed: () async {
-                                if (_formKey.currentState!.validate()) {
-                                  _saveDonor({
-                                    'bloodType': _selectedBloodType,
-                                    'name': _nameController.text.trim(),
-                                    'phone': _phoneController.text.trim(),
-                                    'city': _selectedCity,
-                                    'isDonor': widget.isDonor,
-                                    'createdAt': FieldValue.serverTimestamp(),
-                                  });
+                                if (!_formKey.currentState!.validate()) return;
 
-                                  showDialog(
-                                    context: context,
-                                    barrierDismissible: false,
-                                    barrierColor: Colors.black54,
-                                    builder: (context) => Dialog(
-                                      backgroundColor: const Color(0xFF1E0C0C),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(20),
-                                      ),
-                                      child: Padding(
-                                        padding: const EdgeInsets.all(24),
-                                        child: Column(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Container(
-                                              width: 70,
-                                              height: 70,
-                                              decoration: const BoxDecoration(
-                                                color: Colors.green,
-                                                shape: BoxShape.circle,
-                                              ),
-                                              child: const Icon(
-                                                Icons.check,
-                                                color: Colors.white,
-                                                size: 40,
-                                              ),
+                                final phone = _phoneController.text.trim();
+                                final name = _nameController.text.trim();
+
+                                final isDuplicate = await _isDuplicateDonor(name, phone);
+                                if (!context.mounted) return;
+                                if (isDuplicate) {
+                                  _showDuplicateDialog(name, phone);
+                                  return;
+                                }
+
+                                _saveDonor({
+                                  'bloodType': _selectedBloodType,
+                                  'name': _nameController.text.trim(),
+                                  'phone': _phoneController.text.trim(),
+                                  'city': _selectedCity,
+                                  'isDonor': widget.isDonor,
+                                  'createdAt': FieldValue.serverTimestamp(),
+                                });
+
+                                showDialog(
+                                  context: context,
+                                  barrierDismissible: false,
+                                  barrierColor: Colors.black54,
+                                  builder: (context) => Dialog(
+                                    backgroundColor: const Color(0xFF1E0C0C),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(24),
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Container(
+                                            width: 70,
+                                            height: 70,
+                                            decoration: const BoxDecoration(
+                                              color: Colors.green,
+                                              shape: BoxShape.circle,
                                             ),
-                                            const SizedBox(height: 16),
-                                            const Text(
-                                              'تم اضافتك كمتبرع دم بنجاح',
-                                              style: TextStyle(
-                                                color: Colors.white,
-                                                fontSize: 16,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                              textAlign: TextAlign.center,
+                                            child: const Icon(
+                                              Icons.check,
+                                              color: Colors.white,
+                                              size: 40,
                                             ),
-                                          ],
-                                        ),
+                                          ),
+                                          const SizedBox(height: 16),
+                                          const Text(
+                                            'تم اضافتك كمتبرع دم بنجاح',
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                            textAlign: TextAlign.center,
+                                          ),
+                                        ],
                                       ),
                                     ),
-                                  );
+                                  ),
+                                );
 
-                                  await Future.delayed(const Duration(seconds: 2));
+                                await Future.delayed(const Duration(seconds: 2));
 
-                                  if (!context.mounted) return;
-                                  Navigator.pop(context);
+                                if (!context.mounted) return;
+                                Navigator.pop(context);
 
-                                  Navigator.pushAndRemoveUntil(
-                                    context,
-                                    MaterialPageRoute(builder: (context) => const RoleSelectionScreen()),
-                                    (route) => false,
-                                  );
-                                }
+                                Navigator.pushAndRemoveUntil(
+                                  context,
+                                  MaterialPageRoute(builder: (context) => const RoleSelectionScreen()),
+                                  (route) => false,
+                                );
                               },
                               child: const Text(
                                 'تأكيد',
@@ -385,6 +400,109 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
+  Future<bool> _isDuplicateDonor(String name, String phone) async {
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('donors')
+          .where('phone', isEqualTo: phone)
+          .get();
+      for (final doc in snapshot.docs) {
+        final data = doc.data();
+        final existingName = (data['name'] as String?) ?? '';
+        if (_normalizeName(existingName) == _normalizeName(name)) {
+          return true;
+        }
+      }
+    } catch (e) {
+      // Ignore lookup errors and allow saving.
+    }
+    return false;
+  }
+
+  static String _normalizeName(String name) {
+    return name
+        .trim()
+        .replaceAll(RegExp('[أإآٱ]'), 'ا')
+        .replaceAll('ى', 'ي')
+        .replaceAll('ئ', 'ي')
+        .replaceAll('ؤ', 'و')
+        .replaceAll('ة', 'ه')
+        .replaceAll(RegExp(r'\s+'), ' ');
+  }
+
+  void _showDuplicateDialog(String name, String phone) {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierColor: Colors.black54,
+      builder: (context) => Dialog(
+        backgroundColor: const Color(0xFF1E0C0C),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 70,
+                height: 70,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFFFA000),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.error_outline,
+                  color: Colors.white,
+                  size: 40,
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'هذا المتبرع مضاف من قبل',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 17,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'الاسم: $name\nرقم الهاتف: $phone\nهذا الشخص مسجل مسبقاً حتى لو كانت فصيلة الدم مختلفة',
+                style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.6),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                height: 44,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFB71C1C),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(22),
+                    ),
+                  ),
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text(
+                    'حسناً',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   InputDecoration _inputDecoration({required String hintText, required IconData icon}) {
     return InputDecoration(
       filled: true,
@@ -404,6 +522,30 @@ class _RegisterScreenState extends State<RegisterScreen> {
         borderRadius: BorderRadius.circular(16),
         borderSide: const BorderSide(color: Color(0xFFB71C1C), width: 1.8),
       ),
+    );
+  }
+}
+
+class _PhoneDigitsFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
+    var text = newValue.text;
+
+    text = text.replaceAllMapped(RegExp(r'[٠-٩]'), (m) {
+      return String.fromCharCode(m.group(0)!.codeUnitAt(0) - 0x0660 + 48);
+    });
+    text = text.replaceAllMapped(RegExp(r'[۰-۹]'), (m) {
+      return String.fromCharCode(m.group(0)!.codeUnitAt(0) - 0x06F0 + 48);
+    });
+    text = text.replaceAll(RegExp(r'[^0-9]'), '');
+
+    if (text.length > 9) {
+      text = text.substring(0, 9);
+    }
+
+    return TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
     );
   }
 }
