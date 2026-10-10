@@ -58,6 +58,23 @@ class DonorCard extends StatelessWidget {
             children: [
               InkWell(
                 onTap: () async {
+                  final Uri url = Uri.parse("https://wa.me/${donor.phone}");
+                  if (await canLaunchUrl(url)) {
+                    await launchUrl(url, mode: LaunchMode.externalApplication);
+                  }
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(7),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF25D366),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.chat_bubble, color: Colors.white, size: 16),
+                ),
+              ),
+              const SizedBox(width: 8),
+              InkWell(
+                onTap: () async {
                   final Uri url = Uri(scheme: 'tel', path: donor.phone);
                   if (await canLaunchUrl(url)) {
                     await launchUrl(url);
@@ -66,7 +83,7 @@ class DonorCard extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.all(7),
                   decoration: const BoxDecoration(
-                    color: Color(0xFFFF8A80),
+                    color: Color(0xFFE53935),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(Icons.phone, color: Colors.white, size: 16),

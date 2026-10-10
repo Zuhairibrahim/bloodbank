@@ -68,8 +68,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   return DonorModel.fromMap(doc.id, doc.data() as Map<String, dynamic>);
                 }).toList();
 
-                donorsList.sort(DonorModel.compareArabicNames);
-
                 final filteredList = donorsList.where((user) {
                   return user.name.toLowerCase().contains(searchQuery) ||
                          user.bloodType.toLowerCase().contains(searchQuery) ||

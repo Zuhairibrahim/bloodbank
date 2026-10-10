@@ -26,19 +26,6 @@ class DonorModel {
     );
   }
 
-  static String _arabicKey(String name) {
-    return name
-        .replaceAll(RegExp('[أإآٱ]'), 'ا')
-        .replaceAll('ى', 'ي')
-        .replaceAll('ئ', 'ي')
-        .replaceAll('ؤ', 'و')
-        .replaceAll('ة', 'ه');
-  }
-
-  static int compareArabicNames(DonorModel a, DonorModel b) {
-    return _arabicKey(a.name).compareTo(_arabicKey(b.name));
-  }
-
   Map<String, dynamic> toMap() {
     return {
       'name': name,
