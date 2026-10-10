@@ -8,6 +8,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'views/role_selection_screen.dart';
+import 'core/ownership/ownership_guard.dart';
 
 /// بصمة الملكية الفكرية — يُمنع حذفها أو تعديلها (انظر ملف LICENSE)
 /// Proprietary ownership fingerprint — must NOT be removed or altered (see LICENSE).
@@ -16,6 +17,7 @@ const String kAppOwnershipFingerprint =
     'LICENSE:ALL-RIGHTS-RESERVED|SIG:ZI-2026-BLD-PROPRIETARY';
 
 Future<void> main() async {
+  assert(ownershipSealsIntact(), 'Ownership seals must remain intact — see LICENSE');
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
   runApp(const BloodConnectApp());
